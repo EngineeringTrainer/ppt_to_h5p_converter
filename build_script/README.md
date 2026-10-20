@@ -20,8 +20,10 @@ directory. The shared [requirements.txt](../requirements.txt) and
 [LICENSE](../LICENSE) are also at that level.
 
 - GUI source: Windows, desktop PowerPoint, Tkinter, Pillow, and pywin32.
-- CLI source: Pillow plus pywin32 for Windows PowerPoint, or pypdfium2 and installed
-  LibreOffice for the PDF-rendering route.
+- CLI source: Pillow and FontTools for font verification, plus pywin32 for Windows
+  PowerPoint, or pypdfium2 and installed LibreOffice for the PDF-rendering route.
+  On Linux, font verification also requires fontconfig (`fc-list`). The
+  `--ignore-missing-fonts` flag bypasses font verification and its warnings.
 - The documented shared environment uses Python 3.11 or newer. PyInstaller is an
   optional build dependency, not a conversion requirement.
 
@@ -62,6 +64,8 @@ not been executed on Windows during this work.
 The v1.3 CLI is currently distributed as a Python script. Its PowerPoint worker
 relaunches the script through the Python interpreter; the GUI packaging commands
 above are not a validated CLI packaging workflow.
+Keep the CLI's [font verification module](<pptx_to_h5p_converter cli v1_3 verify fonts.py>)
+beside its entry script.
 
 ## Verification
 

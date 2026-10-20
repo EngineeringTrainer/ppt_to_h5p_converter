@@ -137,6 +137,9 @@ python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "slides.pptx" --app lib
 # Override LibreOffice discovery only if needed
 python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "slides.pptx" --app libreoffice --libreoffice-path "/Applications/LibreOffice.app/Contents/MacOS/soffice"
 
+# Continue with substitute fonts and suppress the missing-font warning
+python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "slides.pptx" --ignore-missing-fonts
+
 # List every option
 python3 "build_script/pptx_to_h5p_converter cli v1_3.py" --help
 ```
@@ -148,6 +151,7 @@ python3 "build_script/pptx_to_h5p_converter cli v1_3.py" --help
 | `--app auto/powerpoint/libreoffice` | Default `auto`: PowerPoint on Windows; LibreOffice elsewhere. Explicit PowerPoint selection requires Windows. |
 | `--libreoffice-path PATH` | Override the LibreOffice executable location. Only valid when LibreOffice is selected. |
 | `--include-hidden` | Include hidden slides. By default they are skipped; all-hidden decks fail without creating output. |
+| `--ignore-missing-fonts` | Skip font verification and its warnings, allowing conversion with substitute fonts. Other conversion errors remain visible. |
 | `--timeout SECONDS` | Positive number, default **30** per presentation's app export. PDF rasterization and H5P packaging are outside this timeout. |
 | `--resolution high/low` | Default `high`: 1920×1080; `low`: 1280×720. Slides preserve proportions and are centered on a white canvas. |
 | `--force` | Replace existing output files after successful conversion. Without this flag, existing outputs are reported as failures. |
@@ -159,6 +163,51 @@ before processing. Successful output paths go to stdout; status and errors go to
 stderr. Exit codes: `0` all succeeded, `1` conversion failure or existing output,
 `2` invalid arguments/input or no matching files, `130` interrupted.
 
+### Missing-font check
+
+Before rendering, the CLI resolves the fonts and bold/italic styles used by the
+included slides, including inherited layout/master/theme styles, static template
+text, active bullets, equations, table text, and rich chart/diagram text. It does
+not count notes, excluded hidden slides, empty text runs, unused theme script
+fonts, or placeholder prompt text.
+
+If a required font or style is missing, conversion stops before creating output
+and prints a message such as:
+
+```text
+Missing fonts:
+  - Tw Cen MT — Regular
+  - Calibri — Bold
+
+Install these fonts on this computer before converting. Missing fonts may change text size, spacing, and line breaks.
+To continue with substitute fonts, add --ignore-missing-fonts.
+```
+
+Install the listed fonts for the user running the converter, then start the CLI
+again. Office fonts stored privately inside PowerPoint may need installing for
+other applications to see them. The converter does not install or download fonts.
+Use `--ignore-missing-fonts` to skip this check silently when substitution is
+acceptable. This override also allows conversion when the font inventory cannot
+be inspected; it does not suppress rendering, timeout, or output errors.
+
+Folder conversion skips presentations with missing fonts, processes the remaining
+files, and exits with code `1` if any fail. With the override, it attempts every
+presentation. Existing output is protected even when `--force` is supplied until
+font verification and conversion succeed.
+
+The check reads real font metadata using FontTools. On Mac it uses CoreText's
+available font files; on Windows it reads the installed-font registry; Linux
+requires `fc-list` from fontconfig. LibreOffice's own bundled fonts and supported,
+readable embedded fonts are included. A replacement font such as Carlito does
+not count as the original Calibri. Corrupt, restricted, obfuscated, or unsupported
+embedded fonts are not assumed usable. Font inventory is cached within the
+converter process, so rerun the CLI after installing fonts.
+
+This is a font availability check, not a guarantee of PowerPoint-equivalent
+rendering. It does not check individual glyph coverage, text baked into images,
+or every font chosen implicitly by complex chart/SmartArt rendering. Installed
+fonts do not fix separate equation-import or layout issues in LibreOffice.
+
 ### CLI troubleshooting
 
 - If LibreOffice is missing, install it or use `--libreoffice-path` pointing to
@@ -166,6 +215,9 @@ stderr. Exit codes: `0` all succeeded, `1` conversion failure or existing output
   `PATH` and standard installation locations.
 - Windows PowerPoint requires activation and initial setup. Alternatively select
   `--app libreoffice`. The CLI does not silently switch apps after a failure.
+- For a font-check failure on Linux, ensure fontconfig (`fc-list`) is installed.
+  For other font errors, install the listed faces/styles or explicitly opt into
+  substitutions with `--ignore-missing-fonts`.
 - If export times out, try `--timeout 90`. Converter-owned processes and temporary
   files are cleaned up. Existing PowerPoint sessions are not terminated; if
   automation stalled in a reused session, an opened copy may need closing manually.
@@ -202,8 +254,10 @@ python3 -m unittest discover -s tests -v
 H5P_RUN_INTEGRATION=1 python3 -m unittest discover -s tests -v
 ```
 
-The integration test requires LibreOffice and the bundled
+The integration tests require LibreOffice and the bundled
 [Introduction to H5P fixture](tests/fixtures/introduction_to_h5p/README.md).
+They cover missing-font rejection, silent override, and conversion with available
+fonts as well as the existing packaging and folder-conversion checks.
 Fixtures group the source deck and reference exports by presentation. Derived
 decks, conversion outputs, and temporary PDFs are created in temporary directories.
 PowerPoint reference exports are for visual comparison; different apps need not

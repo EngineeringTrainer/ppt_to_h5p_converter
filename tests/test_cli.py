@@ -18,6 +18,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "build_script/pptx_to_h5p_converter cli v1_3.py"
+sys.path.insert(0, str(SCRIPT.parent))
 FIXTURE = ROOT / "tests/fixtures/introduction_to_h5p"
 SOURCE = FIXTURE / "source.pptx"
 REFERENCE_IMAGE = FIXTURE / "reference/powerpoint_images/slide_01.png"
@@ -53,6 +54,10 @@ class CliTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.directory = Path(self.temporary.name)
+        # These tests exercise conversion mechanics; font preflight has its own tests.
+        patch = mock.patch.object(cli, "missing_fonts", return_value=[])
+        patch.start()
+        self.addCleanup(patch.stop)
 
     def test_platform_selection(self):
         for platform, expected in (("win32", "powerpoint"), ("darwin", "libreoffice"),
@@ -339,7 +344,7 @@ class LibreOfficeIntegrationTests(unittest.TestCase):
             shutil.copyfile(SOURCE, source / "nested/skip.pptx")
             output = directory / "Converted courses"
             command = [sys.executable, str(SCRIPT), str(source), "-o", str(output),
-                       "--app", "libreoffice", "--resolution", "low"]
+                       "--app", "libreoffice", "--resolution", "low", "--ignore-missing-fonts"]
             result = subprocess.run(command, capture_output=True, timeout=150)
             self.assertEqual(result.returncode, 1, result.stderr.decode())
             self.assertIn(b"3 succeeded, 1 failed", result.stderr)
@@ -364,7 +369,8 @@ class LibreOfficeIntegrationTests(unittest.TestCase):
                                 self.assertEqual(image.getpixel((0, 360)), (255, 255, 255))
             hidden_output = directory / "including hidden.h5p"
             result = subprocess.run([sys.executable, str(SCRIPT), str(source / "B hidden.pptx"),
-                                     "-o", str(hidden_output), "--include-hidden", "--timeout", "60"],
+                                     "-o", str(hidden_output), "--include-hidden", "--timeout", "60",
+                                     "--ignore-missing-fonts"],
                                     capture_output=True, timeout=90)
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             with zipfile.ZipFile(hidden_output) as archive:

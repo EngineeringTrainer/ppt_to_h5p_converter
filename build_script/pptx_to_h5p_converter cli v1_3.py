@@ -20,6 +20,10 @@ import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 
+_font_verification = importlib.import_module("pptx_to_h5p_converter cli v1_3 verify fonts")
+FontCheckError = _font_verification.FontCheckError
+missing_fonts = _font_verification.missing_fonts
+
 
 RESOLUTIONS = {"high": (1920, 1080), "low": (1280, 720)}
 PRESENTATION_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
@@ -61,6 +65,8 @@ def create_parser():
     parser.add_argument("--libreoffice-path", type=Path,
                         help="LibreOffice executable path if automatic discovery fails")
     parser.add_argument("--include-hidden", action="store_true", help="include hidden slides")
+    parser.add_argument("--ignore-missing-fonts", action="store_true",
+                        help="skip the font check and its warnings; allow substitute fonts")
     parser.add_argument("--timeout", type=positive_seconds, default=30.0,
                         metavar="SECONDS", help="maximum app export time per presentation")
     parser.add_argument("--resolution", choices=RESOLUTIONS, default="high",
@@ -445,6 +451,20 @@ def convert(source, destination, app, executable, args):
     if os.path.lexists(destination) and not args.force:
         raise ConversionError(f"Output exists: {destination}. Use --force to replace it.")
     numbers = eligible_slides(source, args.include_hidden)
+    if not args.ignore_missing_fonts:
+        try:
+            missing = missing_fonts(source, numbers, app, executable)
+        except FontCheckError as exc:
+            raise ConversionError(f"Font check failed: {exc}\n"
+                                  "To continue without font verification, add --ignore-missing-fonts.") from exc
+        if missing:
+            listing = "\n".join(f"  - {font.family} — {font.style}" for font in missing)
+            raise ConversionError(
+                f"Missing fonts:\n{listing}\n\n"
+                "Install these fonts on this computer before converting. Missing fonts may change "
+                "text size, spacing, and line breaks.\n"
+                "To continue with substitute fonts, add --ignore-missing-fonts."
+            )
     target = RESOLUTIONS[args.resolution]
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="pptx-to-h5p-") as temporary:
