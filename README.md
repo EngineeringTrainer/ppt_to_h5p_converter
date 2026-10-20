@@ -1,78 +1,219 @@
-# ppt_to_h5p_converter
-PowerPoint to H5P Converter
-This tool converts PowerPoint presentations (.pptx files) to H5P course presentations. It creates high-resolution PNG images of each slide and packages them into an H5P file format.
-System Requirements
+# PowerPoint to H5P Converter
 
-Windows operating system
-Microsoft PowerPoint installed
+Convert PowerPoint `.pptx` presentations into image-based H5P Course
+Presentations. Choose the **Windows GUI** for file selection with buttons or the
+**cross-platform CLI** for terminal use and folder conversion.
 
-Installation
+- [Version differences](#version-differences)
+- [Windows GUI: v1.1 and v1.2](#windows-gui-v11-and-v12)
+- [Command line: v1.3](#command-line-v13)
+- [H5P output and compatibility](#h5p-output-and-compatibility)
+- [Development and verification](#development-and-verification)
 
-Go to the Releases page of this repository.
-Download the latest ppt_to_h5p_converter.exe file.
-Save the file to a location on your computer where you have write permissions.
+## Version differences
 
-Usage
+| Behavior | v1.1 GUI | v1.2 GUI | v1.3 CLI |
+| --- | --- | --- | --- |
+| Interface | Tkinter file-selection window | Tkinter window with resolution buttons | Terminal arguments |
+| Operating system | Windows | Windows | Windows, Mac, Linux |
+| Rendering app | Microsoft PowerPoint | Microsoft PowerPoint | PowerPoint by default on Windows; LibreOffice elsewhere; selectable with `--app` |
+| Rendering sequence | PowerPoint → PNG → H5P | PowerPoint → PNG → H5P | PowerPoint → PNG → H5P, or LibreOffice → temporary PDF → PNG → H5P |
+| Image resolution | Fixed 3840×2160 | High 1920×1080 (default) or low 1280×720 | High 1920×1080 (default) or low 1280×720 |
+| Aspect ratio | Requests the fixed output dimensions directly | Requests the selected output dimensions directly | Preserves proportions, centering on a white canvas |
+| Input | One presentation | One presentation | One presentation or a folder, without recursion |
+| Hidden slides | Included | Included | Skipped by default; `--include-hidden` includes them |
+| Existing output | No explicit overwrite guard in conversion code | No explicit overwrite guard in conversion code | Protected unless `--force` is supplied |
+| Export timeout | None | None | 30 seconds per presentation; adjustable with `--timeout` |
+| Diagnostics | Dialogs and a log file | Dialogs and a log file | stderr, exit codes, optional tracebacks with `--verbose` |
 
-Double-click the ppt_to_h5p_converter.exe file to run the application.
-Use the GUI to select your input PowerPoint file and specify the output H5P file.
-Click "Convert" to start the conversion process.
-Check the output directory for your converted H5P file.
+The three versions are separate scripts. v1.2 adds resolution selection to the
+original GUI; v1.3 adds a command-line interface, cross-platform app selection,
+folder processing, hidden-slide controls, and safer output handling. The GUI
+scripts have not been changed by the CLI work. v1.3 also explicitly declares the
+`H5P.Image 1.1` dependency used by each slide; the GUI archives omit that declaration.
 
-Troubleshooting
-If you encounter any issues:
+Exact source filenames and Windows executable build instructions are listed in
+[build_script/README.md](build_script/README.md).
 
-Check that you have Microsoft PowerPoint installed and up to date.
-Ensure you have write permissions in the directory where you're trying to save the H5P file.
-Look for a ppt_to_h5p_converter.log file in the same directory as the executable. This log file may contain detailed error messages.
+## Windows GUI: v1.1 and v1.2
 
-If problems persist, please open an issue on this repository with a description of the problem and the contents of the log file.
-Contributing
-Contributions, issues, and feature requests are welcome. Feel free to check the issues page if you want to contribute.
-License
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Requirements and setup
 
-Look to issues as I am getting false positives, plus they are converting a bit big at the moment. 
+The GUI scripts require Windows, installed and activated desktop Microsoft
+PowerPoint, Python with Tkinter, Pillow, and pywin32. The source setup below uses
+Python 3.11 or newer. Tkinter is supplied with the standard Windows Python
+installer; it is not installed through pip.
 
-# PowerPoint to H5P Converter v1.2 Changelog
+From the repository root in PowerShell:
 
-## New Features
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m tkinter
+```
 
-1. **Resolution Options**: 
-   - Added the ability to choose between two resolution options for slide conversion:
-     - High Resolution: 1920x1080
-     - Low Resolution: 1280x720
-   - Implemented radio buttons in the GUI for easy selection of resolution.
+The final command opens a small Tkinter verification window; close it before
+starting the converter. The shared requirements install dependencies for both
+the GUI and CLI, including pywin32 only on Windows. For a GUI-only environment,
+Pillow and pywin32 are the only pip dependencies.
 
-2. **GUI Enhancements**:
-   - Updated the graphical user interface to include resolution selection options.
-   - Improved layout for better user experience.
+### Launch and convert
 
-## Code Changes
+Start v1.2 for resolution selection:
 
-1. **convert_slides_to_images Function**:
-   - Modified to accept a `resolution` parameter.
-   - Now uses the specified resolution when exporting slides to images.
+```powershell
+.\.venv\Scripts\python.exe "build_script/pptx_to_h5p_converter buttons v1_2.py"
+```
 
-2. **convert_ppt_to_h5p Function**:
-   - Updated to pass the selected resolution to `convert_slides_to_images`.
+Or start v1.1 for fixed 3840×2160 exports:
 
-3. **create_gui Function**:
-   - Added radio buttons for resolution selection.
-   - Modified the `convert` function to use the selected resolution.
+```powershell
+.\.venv\Scripts\python.exe "build_script/ppt_to_h5p_converter v1.1.py"
+```
 
-## Executable Creation
+1. Browse to the input `.pptx` file.
+2. Choose the destination `.h5p` file.
+3. In v1.2, select **High** or **Low** resolution. v1.1 has no resolution control.
+4. Click **Convert**, then wait for the success or error dialog.
+5. Upload the result to an H5P destination with the required libraries installed.
 
-- Implemented the ability to create a standalone executable (.exe) file using PyInstaller.
-- Added instructions for creating the executable, including necessary PyInstaller commands.
+If you already have a Windows GUI `.exe` from a project release, double-click it
+to open the same interface. A bundled executable does not require a separate
+Python installation, but still requires Microsoft PowerPoint. No `.exe` is
+included in this checkout; see the [build instructions](build_script/README.md#building-a-windows-gui-executable).
 
-## Other Improvements
+### GUI troubleshooting
 
-- Updated error handling and logging to account for resolution-related issues.
-- Refined code comments for better maintainability.
-- Ensured compatibility with the new resolution options throughout the script.
+- Run PowerPoint once to finish activation and initial setup.
+- Check that both the source and destination are accessible and the output
+  directory is writable.
+- Both GUI versions write `ppt_to_h5p_converter.log` in the current working
+  directory. When using the commands above, that is the repository root; it is
+  not necessarily the directory containing an executable.
+- The GUI versions call `PowerPoint.Application.Quit()` after conversion and can
+  share an existing PowerPoint instance. Save and close other presentations
+  before using them.
+- v1.1 exports at 4K, which can produce larger files. Use v1.2's low-resolution
+  setting when smaller images are sufficient.
+- GUI conversion runs synchronously without a timeout or cancellation control;
+  the window can appear unresponsive while PowerPoint is exporting.
 
-## Notes
+## Command line: v1.3
 
-- The executable version requires Microsoft PowerPoint to be installed on the user's system.
-- Users should be aware that high-resolution conversions may take longer and produce larger file sizes.
+### Requirements and setup
+
+Use Python 3.11 or newer. Windows defaults to installed desktop Microsoft
+PowerPoint. Mac and Linux use [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/).
+Windows users can also choose LibreOffice with `--app libreoffice`.
+
+On Mac, Homebrew users can install LibreOffice with
+`brew install --cask libreoffice`. Then, from the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+On Windows, use the PowerShell environment setup from the GUI section. Replace
+`python3` in the examples below with `.\.venv\Scripts\python.exe`.
+Quote the script path because its name contains spaces.
+
+### Launch and convert
+
+```bash
+# Convert the bundled example into the converted directory
+python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "tests/fixtures/introduction_to_h5p/source.pptx" -o "converted/introduction_to_h5p.h5p"
+
+# Select a destination and smaller images
+python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "slides.pptx" -o "output/course.h5p" --resolution low
+
+# All PPTX files immediately inside a folder
+python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "presentations" -o "converted"
+
+# Choose LibreOffice, include hidden slides, and allow 90 seconds for export
+python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "slides.pptx" --app libreoffice --include-hidden --timeout 90
+
+# Override LibreOffice discovery only if needed
+python3 "build_script/pptx_to_h5p_converter cli v1_3.py" "slides.pptx" --app libreoffice --libreoffice-path "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+
+# List every option
+python3 "build_script/pptx_to_h5p_converter cli v1_3.py" --help
+```
+
+| Option | Behavior |
+| --- | --- |
+| `input` | A `.pptx` file or folder. Folder processing is not recursive; uppercase extensions are supported and `~$` lock files are ignored. |
+| `-o`, `--output` | H5P filename for single input; directory for folder input. Parent directories are created. Defaults to beside each source. |
+| `--app auto/powerpoint/libreoffice` | Default `auto`: PowerPoint on Windows; LibreOffice elsewhere. Explicit PowerPoint selection requires Windows. |
+| `--libreoffice-path PATH` | Override the LibreOffice executable location. Only valid when LibreOffice is selected. |
+| `--include-hidden` | Include hidden slides. By default they are skipped; all-hidden decks fail without creating output. |
+| `--timeout SECONDS` | Positive number, default **30** per presentation's app export. PDF rasterization and H5P packaging are outside this timeout. |
+| `--resolution high/low` | Default `high`: 1920×1080; `low`: 1280×720. Slides preserve proportions and are centered on a white canvas. |
+| `--force` | Replace existing output files after successful conversion. Without this flag, existing outputs are reported as failures. |
+| `--verbose` | Print diagnostics and tracebacks to stderr. |
+
+Folder processing uses filename order, continues after individual failures, and
+prints a final success/failure count. Conflicting output filenames are rejected
+before processing. Successful output paths go to stdout; status and errors go to
+stderr. Exit codes: `0` all succeeded, `1` conversion failure or existing output,
+`2` invalid arguments/input or no matching files, `130` interrupted.
+
+### CLI troubleshooting
+
+- If LibreOffice is missing, install it or use `--libreoffice-path` pointing to
+  `soffice` (Mac/Linux) or `soffice.com` / `soffice.exe` (Windows). Discovery checks
+  `PATH` and standard installation locations.
+- Windows PowerPoint requires activation and initial setup. Alternatively select
+  `--app libreoffice`. The CLI does not silently switch apps after a failure.
+- If export times out, try `--timeout 90`. Converter-owned processes and temporary
+  files are cleaned up. Existing PowerPoint sessions are not terminated; if
+  automation stalled in a reused session, an opened copy may need closing manually.
+- On Mac, an `Abort trap: 6` / exit `134` popup can occur when a restricted app
+  sandbox blocks LibreOffice's macOS startup. Try the command from Terminal
+  outside that sandbox. The integration tests succeeded outside the sandbox.
+- For dependency errors, activate the environment and rerun
+  `python -m pip install -r requirements.txt`. For other errors, retry with
+  `--verbose` and include the output in an issue report.
+
+## H5P output and compatibility
+
+All versions produce one PNG image per included slide inside an H5P Course
+Presentation. Text and objects are not editable; animations, video, and speaker
+notes are not transferred. LibreOffice may render fonts, diagrams, and layouts
+differently from PowerPoint. Install the source fonts and inspect the result
+before publishing.
+
+The destination needs Course Presentation **1.25**, Image **1.1**, FontAwesome
+**4.5**, H5P.FontIcons **1.0**, H5P.JoubelUI **1.3**, and H5P.Transition **1.0**,
+including their dependencies. Archives contain content and metadata rather than
+bundled runtime libraries. For missing-library import errors, ask the destination
+administrator to install compatible libraries. See [H5P dependency validation](https://h5p.org/creating-your-own-h5p-plugin).
+An archive structure check does not establish compatibility with every H5P host.
+
+## Development and verification
+
+See [build_script/README.md](build_script/README.md) for source entry points and
+Windows GUI executable packaging. Use the root requirements file for the shared
+development environment.
+
+```bash
+python3 -m unittest discover -s tests -v
+H5P_RUN_INTEGRATION=1 python3 -m unittest discover -s tests -v
+```
+
+The integration test requires LibreOffice and the bundled
+[Introduction to H5P fixture](tests/fixtures/introduction_to_h5p/README.md).
+Fixtures group the source deck and reference exports by presentation. Derived
+decks, conversion outputs, and temporary PDFs are created in temporary directories.
+PowerPoint reference exports are for visual comparison; different apps need not
+produce identical pixels.
+
+The CLI was tested on Mac with Python 3.14 and LibreOffice. Windows PowerPoint
+has mocked tests; a real Windows end-to-end run remains required before claiming
+runtime verification. The original GUI scripts were inspected but were not run
+on Windows during this work.
+
+## License and attribution
+
+MIT. See [LICENSE](LICENSE) and [ATTRIBUTION.md](ATTRIBUTION.md).
